@@ -1,101 +1,169 @@
-import Image from "next/image";
+'use client';
 
-export default function Home() {
+import { SetStateAction, useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import axios from 'axios';
+import { Volume, Send, Moon, Sun, Bot } from 'lucide-react';
+import { useTheme } from "next-themes";
+import { Card, CardContent } from "@/components/ui/card";
+
+interface Message {
+  text: string;
+  sender: 'user' | 'bot';
+  audioUrl?: string;
+}
+
+export default function Component() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { theme, setTheme } = useTheme();
+
+  const handleSpeak = async (text: string) => {
+    if (!text.trim()) return;
+    
+    try {
+      setIsLoading(true);
+      const response = await axios.post('/api/speak', { text });
+      
+      const audioData = response.data.audioData;
+      const byteCharacters = atob(audioData.split(',')[1]);
+      const byteNumbers = new Array(byteCharacters.length);
+      
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'audio/mp3' });
+      const audioUrl = URL.createObjectURL(blob);
+      const audio = new Audio(audioUrl);
+      
+      await audio.play();
+      
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+      };
+    } catch (error) {
+      console.error('Error generating speech:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (input.trim()) {
+      const userMessage: Message = { 
+        text: input, 
+        sender: 'user' 
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setInput('');
+      
+      try {
+        setIsLoading(true);
+        const response = await axios.post('/api/chat', { message: input });
+        
+        const botMessage: Message = { 
+          text: response.data.response,
+          sender: 'bot'
+        };
+        
+        setMessages(prev => [...prev, botMessage]);
+      } catch (error) {
+        console.error('Error getting response:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
   return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+    <div className="flex flex-col min-h-screen bg-gradient-to-b from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100">
+      <div className="fixed top-4 right-4">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+          className="rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+        >
+          {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+        </Button>
+      </div>
+      
+      <div className="container mx-auto max-w-4xl p-4">
+        <div className="flex items-center justify-center gap-3 mb-8">
+          <h1 className="text-4xl font-bold text-center bg-gradient-to-r from-blue-500 to-purple-500 bg-clip-text text-transparent">
+            Personal AI Assistant
+          </h1>
+          <Bot className="h-8 w-8 text-purple-500 animate-bounce" />
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+        
+        <Card className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm shadow-xl rounded-2xl">
+          <CardContent className="p-6">
+            <ScrollArea className="h-[60vh] pr-4">
+              <div className="space-y-6">
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${message.sender === 'user' ? 'justify-end' : 'justify-start'}`}
+                  >
+                    <div
+                      className={`max-w-xs md:max-w-md lg:max-w-lg xl:max-w-xl rounded-2xl p-4 ${
+                        message.sender === 'user' 
+                          ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white' 
+                          : 'bg-gradient-to-r from-purple-500 to-pink-500 text-white'
+                      } shadow-lg backdrop-blur-sm`}
+                    >
+                      <div className="flex items-center justify-between gap-4">
+                        <p className="text-sm md:text-base leading-relaxed">{message.text}</p>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleSpeak(message.text)}
+                          disabled={isLoading}
+                          className="h-8 w-8 text-white/90 hover:text-white hover:bg-white/10 rounded-full"
+                        >
+                          <Volume className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <form onSubmit={handleSubmit} className="mt-6">
+          <div className="relative flex items-center">
+            <Input
+              type="text"
+              placeholder="Ask me anything..."
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              className="w-full h-14 pr-20 pl-8 py-6 text-lg bg-white dark:bg-gray-800 border-2 border-gray-200 dark:border-gray-700 rounded-full focus:ring-2 focus:ring-blue-500 dark:focus:ring-purple-500 focus:border-transparent shadow-lg"
+              disabled={isLoading}
+            />
+            <Button 
+              type="submit" 
+              className="absolute right-3 w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white transition-transform hover:scale-105"
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+              ) : (
+                <Send className="h-5 w-5" />
+              )}
+            </Button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }
